@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sổ Thu Chi Mini</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+      margin: 0;
+      padding: 20px;
+    }
+    main { max-width: 850px; margin: auto; }
+    h1 { color: #155eaa; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .card, .panel {
+      background: white;
+      padding: 18px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px #00000010;
+    }
+    .card small { color: #64748b; }
+    .card strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 20px;
+      overflow-wrap: anywhere;
+    }
+    .green { color: #15803d; }
+    .red { color: #dc2626; }
+    label { display: block; margin-top: 12px; }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border-radius: 7px;
+      font-size: 16px;
+    }
+    input, select { border: 1px solid #cbd5e1; }
+    button {
+      background: #155eaa;
+      color: white;
+      border: 0;
+      cursor: pointer;
+    }
+    button:hover { background: #104b88; }
+    .delete {
+      width: auto;
+      background: #dc2626;
+      padding: 7px 10px;
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 12px 0;
+    }
+    .item small { color: #64748b; }
+    .right { text-align: right; }
+    @media(max-width: 600px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>📊 Sổ Thu Chi Mini</h1>
+  <p>Quản lý doanh thu và chi phí đơn giản</p>
+
+  <div class="cards">
+    <div class="card">
+      <small>Doanh thu</small>
+      <strong class="green" id="income">0đ</strong>
+    </div>
+    <div class="card">
+      <small>Chi phí</small>
+      <strong class="red" id="expense">0đ</strong>
+    </div>
+    <div class="card">
+      <small>Lợi nhuận</small>
+      <strong id="profit">0đ</strong>
+    </div>
+  </div>
+
+  <section class="panel">
+    <h2>Thêm giao dịch</h2>
+    <form id="form">
+      <label for="name">Tên giao dịch</label>
+      <input id="name" required
+             placeholder="Ví dụ: Bán hàng">
+
+      <label for="type">Loại giao dịch</label>
+      <select id="type">
+        <option value="income">Khoản thu</option>
+        <option value="expense">Khoản chi</option>
+      </select>
+
+      <label for="amount">Số tiền (VNĐ)</label>
+      <input id="amount" type="number"
+             min="1" step="1" required
+             placeholder="Ví dụ: 250000">
+
+      <button type="submit">+ Thêm giao dịch</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Lịch sử giao dịch</h2>
+    <div id="history"></div>
+  </section>
+</main>
+
+<script>
+  const KEY = "so-thu-chi-mini-v1";
+  let transactions = [];
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (Array.isArray(saved)) transactions = saved;
+  } catch (error) {
+    console.warn("Không đọc được dữ liệu cũ", error);
+  }
+
+  const money = number =>
+    new Intl.NumberFormat("vi-VN").format(number) + "đ";
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(transactions));
+  }
+
+  function render() {
+    let income = 0;
+    let expense = 0;
+
+    const history = document.getElementById("history");
+    history.replaceChildren();
+
+    transactions.forEach((item, index) => {
+      if (item.type === "income") income += item.amount;
+      else expense += item.amount;
+
+      const row = document.createElement("div");
+      row.className = "item";
+
+      const details = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = item.name;
+
+      const date = document.createElement("small");
+      date.textContent = item.date;
+
+      details.append(title, document.createElement("br"), date);
+
+      const right = document.createElement("div");
+      right.className = "right";
+
+      const amount = document.createElement("strong");
+      amount.className = item.type === "income" ? "green" : "red";
+      amount.textContent =
+        (item.type === "income" ? "+" : "-") + money(item.amount);
+
+      const del = document.createElement("button");
+      del.className = "delete";
+      del.textContent = "Xóa";
+      del.onclick = () => {
+        if (confirm("Bạn muốn xóa giao dịch này?")) {
+          transactions.splice(index, 1);
+          save();
+          render();
+        }
+      };
+
+      right.append(amount, document.createElement("br"), del);
+      row.append(details, right);
+      history.appendChild(row);
+    });
+
+    document.getElementById("income").textContent = money(income);
+    document.getElementById("expense").textContent = money(expense);
+    document.getElementById("profit").textContent =
+      money(income - expense);
+
+    if (transactions.length === 0) {
+      history.textContent = "Chưa có giao dịch nào.";
+    }
+  }
+
+  document.getElementById("form").addEventListener("submit", e => {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value.trim();
+    const type = document.getElementById("type").value;
+    const amount = Number(document.getElementById("amount").value);
+
+    if (!name || !Number.isSafeInteger(amount) || amount <= 0) {
+      alert("Vui lòng nhập thông tin và số tiền hợp lệ.");
+      return;
+    }
+
+    transactions.unshift({
+      name,
+      type,
+      amount,
+      date: new Date().toLocaleString("vi-VN")
+    });
+
+    save();
+    render();
+    e.target.reset();
+  });
+
+  render();
+</script>
+</body>
+</html>
